@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { InputBox } from "./components";
 import useCurrencyInfo from "./hooks/useCurrencyinfo.js";
+import { Analytics } from "@vercel/analytics/react";
 
 function App() {
   const [amount, setAmount] = useState(0);
@@ -38,12 +39,14 @@ function App() {
   }, [to, from, amount, swap]);
 
   return (
-    <div
-      className="w-full h-screen flex flex-wrap justify-center items-center bg-cover bg-no-repeat"
-      style={{
-        backgroundImage: `url(https://images.pexels.com/photos/998641/pexels-photo-998641.jpeg?auto=compress&cs=tinysrgb&w=600)`,
-      }}
-    >
+    <>
+      <Analytics />
+      <div
+        className="w-full h-screen flex flex-wrap justify-center items-center bg-cover bg-no-repeat"
+        style={{
+          backgroundImage: `url(https://images.pexels.com/photos/998641/pexels-photo-998641.jpeg?auto=compress&cs=tinysrgb&w=600)`,
+        }}
+      >
       <div className="w-full relative">
         <img
           src={data.avatar_url}
@@ -111,6 +114,7 @@ function App() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
