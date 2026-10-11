@@ -32,6 +32,19 @@ npm run build   # production build
 npm run lint    # eslint
 ```
 
+## 🧪 Testing
+
+End-to-end tests use [Playwright](https://playwright.dev) and run against the production build
+(the config starts `npm run build` and `vite preview` automatically).
+
+```bash
+npx playwright install chromium   # one-time browser download
+npm run test:e2e                  # run the regression suite in e2e/
+```
+
+Set `CHROMIUM_PATH=/path/to/chromium` to use an existing Chromium binary instead.
+The tests mock exchange-rate responses, so they don't depend on live rates.
+
 ## 🧩 How It Works
 
 - `src/hooks/useCurrencyinfo.js` — fetches the latest rates for the base

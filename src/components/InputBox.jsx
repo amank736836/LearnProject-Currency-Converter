@@ -1,9 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { currencyFlag } from "../utils/currencyFlags.js";
-
-const numberFormat = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 4,
-});
+import { formatNumber } from "../utils/formatNumber.js";
 
 /**
  * Smoothly tweens toward `value` so the converted amount
@@ -17,7 +14,17 @@ function useAnimatedNumber(value, duration = 0) {
     const from = previous.current;
     const to = value;
 
-    if (duration <= 0 || !Number.isFinite(from) || !Number.isFinite(to)) {
+    // Respect prefers-reduced-motion for the JS-driven count-up as well.
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (
+      duration <= 0 ||
+      prefersReducedMotion ||
+      !Number.isFinite(from) ||
+      !Number.isFinite(to)
+    ) {
       previous.current = to;
       setDisplay(to);
       return;
@@ -53,14 +60,16 @@ function InputBox({
   amountDisabled = false,
   animateValue = false,
   highlight = false,
+  pending = false,
+  error,
   className = "",
 }) {
   const amountInputId = useId();
+  const errorId = `${amountInputId}-error`;
   const numericAmount = Number(amount) || 0;
   const displayed = useAnimatedNumber(numericAmount, animateValue ? 450 : 0);
-  const shownAmount = animateValue
-    ? numberFormat.format(displayed)
-    : amount;
+  const shownAmount =
+    amount === null ? "—" : animateValue ? formatNumber(displayed) : amount;
 
   return (
     <div
@@ -68,7 +77,7 @@ function InputBox({
         highlight
           ? "border-cyan-300/40 bg-gradient-to-br from-cyan-400/15 to-fuchsia-500/10"
           : "border-white/15 bg-white/[0.07]"
-      } hover:border-white/30 hover:bg-white/[0.1] hover:shadow-lg hover:shadow-cyan-500/10 focus-within:border-cyan-300/70 focus-within:shadow-[0_0_0_4px_rgba(34,211,238,0.15)] ${className}`}
+      } hover:border-white/30 hover:bg-white/[0.1] hover:shadow-lg hover:shadow-cyan-500/10 focus-within:border-cyan-300/70 focus-within:shadow-[0_0_0_4px_rgba(34,211,238,0.4)] ${className}`}
     >
       <div className="mb-2 flex items-center justify-between">
         <label
@@ -87,13 +96,22 @@ function InputBox({
 
       <div className="flex items-center gap-3">
         {animateValue ? (
-          <p
+          <output
             id={amountInputId}
+            aria-live="off"
+            aria-busy={pending || undefined}
             className="w-full min-w-0 flex-1 truncate text-2xl font-semibold tabular-nums text-white"
-            title={String(shownAmount)}
+            title={pending ? undefined : String(shownAmount)}
           >
-            {shownAmount}
-          </p>
+            {pending ? (
+              <span
+                className="skeleton inline-block h-7 w-28 rounded-lg align-middle"
+                aria-hidden="true"
+              />
+            ) : (
+              shownAmount
+            )}
+          </output>
         ) : (
           <input
             id={amountInputId}
@@ -104,16 +122,15 @@ function InputBox({
             placeholder="Enter amount"
             disabled={amountDisabled}
             value={amount}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
             onChange={(e) => onAmountChange && onAmountChange(e.target.value)}
           />
         )}
 
         <div className="relative shrink-0">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base">
-            {currencyFlag(selectedCurrency)}
-          </span>
           <select
-            className="cursor-pointer appearance-none rounded-xl border border-white/15 bg-slate-900/80 py-2 pl-10 pr-8 text-sm font-semibold uppercase tracking-wide text-white outline-none transition-all duration-300 hover:border-white/40 hover:bg-slate-800 focus:border-cyan-300/70"
+            className="cursor-pointer appearance-none rounded-xl border border-white/15 bg-slate-900/80 py-2 pl-3 pr-8 text-sm font-semibold uppercase tracking-wide text-white outline-none transition-all duration-300 hover:border-white/40 hover:bg-slate-800 focus:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-300"
             value={selectedCurrency}
             onChange={(e) =>
               onCurrencyChange && onCurrencyChange(e.target.value)
@@ -140,6 +157,12 @@ function InputBox({
           </svg>
         </div>
       </div>
+
+      {error && (
+        <p id={errorId} className="mt-2 text-xs text-rose-300" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
