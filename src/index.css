@@ -162,16 +162,19 @@ body {
   animation: ticker 32s linear infinite;
 }
 
-.ticker:hover .ticker-track {
+.ticker:hover .ticker-track,
+.ticker-paused .ticker-track {
   animation-play-state: paused;
 }
 
+/* Three copies of the row; moving by one row (1/3 of the track) loops seamlessly
+   on any screen width up to two rows wide. */
 @keyframes ticker {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(-33.3333%);
   }
 }
 

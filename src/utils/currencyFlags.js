@@ -54,3 +54,6 @@ const CURRENCY_FLAGS = {
 
 export const currencyFlag = (code) =>
   CURRENCY_FLAGS[String(code).toLowerCase()] ?? "🌐";
+
+// Used for the currency dropdowns when no live rates are available.
+export const KNOWN_CURRENCIES = Object.keys(CURRENCY_FLAGS).sort();

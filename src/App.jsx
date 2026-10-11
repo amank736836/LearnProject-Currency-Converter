@@ -2,39 +2,28 @@ import { useEffect, useMemo, useState } from "react";
 import { InputBox, RateTicker } from "./components";
 import useCurrencyInfo from "./hooks/useCurrencyinfo.js";
 import { Analytics } from "@vercel/analytics/react";
-
-const rateFormat = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 4,
-});
+import { KNOWN_CURRENCIES } from "./utils/currencyFlags.js";
+import { formatNumber } from "./utils/formatNumber.js";
 
 function App() {
   const [amount, setAmount] = useState("100");
-  const [convertedAmount, setConvertedAmount] = useState(0);
 
   const [from, setFrom] = useState("usd");
   const [to, setTo] = useState("inr");
   const [spin, setSpin] = useState(0);
 
-  const { data: currencyInfo, loading, error } = useCurrencyInfo(from);
-  const options = useMemo(
-    () => Object.keys(currencyInfo).sort(),
-    [currencyInfo]
-  );
+  const { data: currencyInfo, loading, error, ready } = useCurrencyInfo(from);
+  const options = useMemo(() => {
+    const codes = Object.keys(currencyInfo);
+    // Fall back to the known list so the dropdowns stay usable when rates fail.
+    return codes.length ? codes.sort() : KNOWN_CURRENCIES;
+  }, [currencyInfo]);
 
   const swap = () => {
     setFrom(to);
     setTo(from);
     setSpin((s) => s + 180);
   };
-
-  const convert = () => {
-    setConvertedAmount((Number(amount) || 0) * (currencyInfo[to] || 0));
-  };
-
-  useEffect(() => {
-    convert();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [to, from, amount, currencyInfo]);
 
   const [github, setGithub] = useState(null);
   useEffect(() => {
@@ -46,7 +35,13 @@ function App() {
       .catch(() => {});
   }, []);
 
-  const rate = currencyInfo[to];
+  // Only trust rates that belong to the currently selected base currency.
+  const rate = ready && !error ? currencyInfo[to] : undefined;
+  const amountIsNegative = amount !== "" && Number(amount) < 0;
+  const convertedAmount =
+    rate === undefined || amountIsNegative
+      ? null
+      : (Number(amount) || 0) * rate;
 
   return (
     <>
@@ -107,11 +102,13 @@ function App() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
                   </span>
-                  1 {from.toUpperCase()} ={" "}
-                  <strong className="tabular-nums text-cyan-300">
-                    {rateFormat.format(rate)}
-                  </strong>
-                  {to.toUpperCase()}
+                  <span>
+                    1 {from.toUpperCase()} ={" "}
+                    <strong className="tabular-nums text-cyan-300">
+                      {formatNumber(rate)}
+                    </strong>{" "}
+                    {to.toUpperCase()}
+                  </span>
                 </span>
               )}
             </div>
@@ -122,6 +119,7 @@ function App() {
                 <InputBox
                   label="From"
                   amount={amount}
+                  error={amountIsNegative ? "Amount can't be negative." : undefined}
                   currencyOptions={options}
                   onCurrencyChange={(currency) => {
                     if (currency === to) {
@@ -171,6 +169,7 @@ function App() {
                 <InputBox
                   label="To"
                   amount={convertedAmount}
+                  pending={loading}
                   currencyOptions={options}
                   onCurrencyChange={(currency) => {
                     if (currency === from) {
@@ -204,18 +203,24 @@ function App() {
               ) : (
                 <span className="skeleton h-6 w-6 rounded-full" />
               )}
-              Built by{" "}
-              <span className="font-semibold text-slate-300 transition-colors group-hover:text-cyan-300">
-                amank736836
+              <span>
+                Built by{" "}
+                <span className="font-semibold text-slate-300 transition-colors group-hover:text-cyan-300">
+                  amank736836
+                </span>{" "}
+                · rates auto-update
               </span>
-              · rates auto-update
             </a>
           </div>
         </main>
 
         {/* Live rate ticker */}
         <div className="animate-fade-in relative z-10" style={{ animationDelay: "600ms" }}>
-          <RateTicker rates={currencyInfo} base={from} loading={loading} />
+          <RateTicker
+            rates={ready && !error ? currencyInfo : {}}
+            base={from}
+            loading={loading}
+          />
         </div>
       </div>
     </>

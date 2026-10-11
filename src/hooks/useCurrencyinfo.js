@@ -6,13 +6,26 @@ const API_URLS = (currency) => [
   `https://latest.currency-api.pages.dev/v1/currencies/${currency}.json`,
 ];
 
+// Don't let a stalled request leave the UI in a loading state forever.
+const REQUEST_TIMEOUT_MS = 8000;
+
+async function fetchJson(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchRates(currency) {
   let lastError = null;
   for (const url of API_URLS(currency)) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
+      const json = await fetchJson(url);
       if (json && json[currency]) return json[currency];
     } catch (err) {
       lastError = err;
@@ -22,25 +35,22 @@ async function fetchRates(currency) {
 }
 
 function useCurrencyInfo(currency) {
-  const [data, setData] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  // Results are stored together with the currency they belong to, so `loading`
+  // is derived instead of being set inside the effect, and stale rates for a
+  // previous base currency are never treated as the current ones.
+  const [state, setState] = useState({ currency: null, data: {}, error: false });
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(false);
 
     fetchRates(currency)
       .then((rates) => {
         if (cancelled) return;
-        setData(rates);
-        setLoading(false);
+        setState({ currency, data: rates, error: false });
       })
       .catch(() => {
         if (cancelled) return;
-        setError(true);
-        setLoading(false);
+        setState((prev) => ({ currency, data: prev.data, error: true }));
       });
 
     return () => {
@@ -48,7 +58,8 @@ function useCurrencyInfo(currency) {
     };
   }, [currency]);
 
-  return { data, loading, error };
+  const ready = state.currency === currency;
+  return { data: state.data, loading: !ready, error: ready && state.error, ready };
 }
 
 export default useCurrencyInfo;
